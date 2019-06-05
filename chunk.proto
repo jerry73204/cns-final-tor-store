@@ -12,10 +12,10 @@ import "google/protobuf/wrappers.proto";
 // Take upload for example,
 // inbound: [val1, val2, val3] may yield outbound: [key2, key3, key1].
 // This facilitates the storage server to concurrently upload to/download from Tor.  
-service Server {
+service Storage {
     // Avoid hard-coding chunk size
     // because implementation changes in storage server may affect this value
-    rpc GetChunkSize(google.protobuf.Empty) returns (google.protobuf.UInt32Value) {}
+    rpc GetChunkSize(google.protobuf.Empty) returns (google.protobuf.Int32Value) {}
     rpc Upload(stream Chunk) returns (stream Chunk) {}
     rpc Download(stream Chunk) returns (stream Chunk) {}
 }
@@ -26,7 +26,7 @@ message Chunk {
     // all chunks appearing in a stream belong to the same storage object,
     // and that's why we only need to distinguish a chunk's index within a storage object,
     // but not a global index among all storage objects.
-    uint32 Idx = 1;
+    int32 Idx = 1;
     // Data may comtain value (public key of hidden service) or key (hash of public key)
     bytes Data = 2;
 }

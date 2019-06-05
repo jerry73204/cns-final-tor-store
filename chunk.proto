@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+option go_package = "main";
+
+package chunk;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/wrappers.proto";
+
+// The order of the chunks in the inbound stream
+// may not be the same as that in the outbound stream.
+// Take upload for example,
+// inbound: [val1, val2, val3] may yield outbound: [key2, key3, key1].
+// This facilitates the storage server to concurrently upload to/download from Tor.  
+service Server {
+    // Avoid hard-coding chunk size
+    // because implementation changes in storage server may affect this value
+    rpc GetChunkSize(google.protobuf.Empty) returns (google.protobuf.UInt32Value) {}
+    rpc Upload(stream Chunk) returns (stream Chunk) {}
+    rpc Download(stream Chunk) returns (stream Chunk) {}
+}
+
+message Chunk {
+    // Idx refers to the chunk index within this storage object.
+    // Since a bidirectional stream is used for each uploading or downloading operation,
+    // all chunks appearing in a stream belong to the same storage object,
+    // and that's why we only need to distinguish a chunk's index within a storage object,
+    // but not a global index among all storage objects.
+    uint32 Idx = 1;
+    // Data may comtain value (public key of hidden service) or key (hash of public key)
+    bytes Data = 2;
+}

@@ -12,13 +12,13 @@ from stem.control import Controller
 
 def main():
     arg_parser = argparse.ArgumentParser()
-    # arg_parser.add_argument('--service-dir', required=True)
     args = arg_parser.parse_args()
 
+    # Generate RSA key pair
     data = random.getrandbits(31 * 8).to_bytes(31, 'little')
     key = forge_rsa_key(data)
 
-    # TODO How to publish hidden service without setting exact service?
+    # Public hidden service
     with Controller.from_port() as controller:
         controller.authenticate()
         response = controller.create_ephemeral_hidden_service(
@@ -36,8 +36,9 @@ def forge_rsa_key(data: bytes, key_size=1024, data_size=254):
     assert len(data) * 8 <= data_size         # Data size sanity check
     data = int.from_bytes(data, 'little')
 
+    # Randomly generate p and q
     while True:
-        # Generate random p. Set LSB and MSB to 1
+        # Pick random p. Set LSB and MSB to 1
         p = random.getrandbits(prime_size) | (2 ** (prime_size - 1) + 1)
         if not gmpy2.is_strong_prp(p, 2):
             continue
@@ -65,6 +66,7 @@ def forge_rsa_key(data: bytes, key_size=1024, data_size=254):
         if found:
             break
 
+    # Compute RSA components
     n = p * q
     e = 65537
     d = int(gmpy2.invert(e, (p - 1) * (q - 1)))
@@ -80,12 +82,17 @@ def forge_rsa_key(data: bytes, key_size=1024, data_size=254):
     # print('r', bin(recovered_data))
     # print('d', bin(data))
 
+    # Library reference
+    # https://pycryptodome.readthedocs.io/en/latest/src/public_key/rsa.html
     key = RSA.construct(
         (n, e, d),
         consistency_check=True,
     )
-    der = key.export_key('DER')
-    ret = base64.b64encode(der)
+
+    # Tor accepts DER-encoded, then base64 encoded RSA key
+    # https://github.com/torproject/tor/blob/a462ca7cce3699f488b5e2f2921738c944cb29c7/src/feature/control/control_cmd.c#L1968
+    der = key.export_key('DER', pkcs=1)
+    ret = str(base64.b64encode(der), 'ASCII')
     return ret
 
 

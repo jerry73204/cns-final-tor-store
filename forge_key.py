@@ -15,7 +15,8 @@ def main():
     args = arg_parser.parse_args()
 
     # Generate RSA key pair
-    data = random.getrandbits(31 * 8).to_bytes(31, 'little')
+    data_len = 31
+    data = random.getrandbits(data_len * 8).to_bytes(data_len, 'little')
     key = forge_rsa_key(data)
 
     # Public hidden service

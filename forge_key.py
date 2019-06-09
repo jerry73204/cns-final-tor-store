@@ -17,7 +17,7 @@ def main():
     # Generate RSA key pair
     data_len = 100
     data = random.getrandbits(data_len * 8).to_bytes(data_len, 'little')
-    print(data)
+    print('Data:', base64.b64encode(data).decode())
     key = forge_rsa_key(data)
 
     # Public hidden service
@@ -49,45 +49,40 @@ NONCE_LEN = 200
 KEY_LEN = 1024
 
 def forge_rsa_key(data: bytes):
-    # Generate RSA key with p=3.
+    # Generate RSA key with p = 11.
     # By Cramer's conjecture (which is likely to be true),
-    #  the maximum prime gap for a 1024-bit number should be around 5*10**5.
-    # We choose a 800-bit data size, and a 200-bit nonce, which allows a maximum
-    #  gap of 2^(1023-1000)/5 ~ 10**6 and a collision probability of 2^(-100).
+    #  the maximum prime gap for a 1024-bit number should be around 500000.
+    # We choose a 800-bit data size and a 200-bit nonce, which allows a maximum
+    #  gap of 2^(1023-1000)/11 ~ 760000 and a collision probability of ~2^(-100).
     assert(len(data) == DATA_LEN // 8)
     # let the highest bit be 1
-    n_expect = 1 << (KEY_LEN - 1) | \
-            int.from_bytes(data, 'little') << (KEY_LEN - 1 - DATA_LEN) | \
-            random.getrandbits(NONCE_LEN) << (KEY_LEN - 1 - DATA_LEN - NONCE_LEN)
     while True:
-        p = 5
-        q = next_prime((n_expect - 1) // p + 1)
-        n = p * q
-        # final (paranoid) correctness check,
-        #  should be true given the conjecture is true
-        if (n >> (KEY_LEN - 1 - DATA_LEN)) == \
-                (n_expect >> (KEY_LEN - 1 - DATA_LEN)): break
-
-    # Compute RSA components
-    e = 65537
-    d = int(gmpy2.invert(e, (p - 1) * (q - 1)))
-
-    # Library reference
-    # https://pycryptodome.readthedocs.io/en/latest/src/public_key/rsa.html
-    key = RSA.construct(
-        (n, e, d),
-        consistency_check=True,
-    )
+        n_expect = 1 << (KEY_LEN - 1) | \
+                int.from_bytes(data, 'little') << (KEY_LEN - 1 - DATA_LEN) | \
+                random.getrandbits(NONCE_LEN) << (KEY_LEN - 1 - DATA_LEN - NONCE_LEN)
+        while True:
+            p = 11
+            q = next_prime((n_expect - 1) // p + 1)
+            n = p * q
+            # final (paranoid) correctness check,
+            #  should be true given the conjecture is true
+            if (n >> (KEY_LEN - 1 - DATA_LEN)) == \
+                    (n_expect >> (KEY_LEN - 1 - DATA_LEN)): break
+        # Compute RSA components
+        e = 65537
+        d = int(gmpy2.invert(e, (p - 1) * (q - 1)))
+        # Library reference
+        # https://pycryptodome.readthedocs.io/en/latest/src/public_key/rsa.html
+        # if get an invalid key (prob ~1/11), retry with another nonce
+        try: key = RSA.construct((n, e, d), consistency_check=True)
+        except ValueError: continue
+        break
 
     # Tor accepts DER-encoded, then base64 encoded RSA key
     # https://github.com/torproject/tor/blob/a462ca7cce3699f488b5e2f2921738c944cb29c7/src/feature/control/control_cmd.c#L1968
     der = key.export_key('DER', pkcs=1)
     ret = str(base64.b64encode(der), 'ASCII')
     return ret
-
-def data_from_public_key(n):
-    data_num = (n - (1 << (KEY_LEN - 1))) >> (KEY_LEN - 1 - DATA_LEN)
-    return data_num.to_bytes(DATA_LEN // 8, 'little')
 
 if __name__ == '__main__':
     main()

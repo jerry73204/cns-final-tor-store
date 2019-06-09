@@ -15,8 +15,9 @@ def main():
     args = arg_parser.parse_args()
 
     # Generate RSA key pair
-    data_len = 61
+    data_len = 100
     data = random.getrandbits(data_len * 8).to_bytes(data_len, 'little')
+    print(data)
     key = forge_rsa_key(data)
 
     # Public hidden service
@@ -43,26 +44,29 @@ def next_prime(num):
         # ensure a sufficient is-prime confidence
         if crypto_prime(num): return int(num)
 
-DATA_LEN = 488
+DATA_LEN = 800
+NONCE_LEN = 200
+KEY_LEN = 1024
 
-def forge_rsa_key(data: bytes, key_size = 1024):
+def forge_rsa_key(data: bytes):
+    # Generate RSA key with p=3.
     # By Cramer's conjecture (which is likely to be true),
-    #  the maximum prime gap for a 512-bit number should be around 10**5.
-    #  Thus, we choose 488-bit for our data size, which allows a maximum
-    #  gap of 2^(511-488) ~ 5*10**6.
-    # There is no need of a nonce, since there is enough randomness in the
-    #  chosen prime factor.
+    #  the maximum prime gap for a 1024-bit number should be around 5*10**5.
+    # We choose a 800-bit data size, and a 200-bit nonce, which allows a maximum
+    #  gap of 2^(1023-1000)/5 ~ 10**6 and a collision probability of 2^(-100).
     assert(len(data) == DATA_LEN // 8)
     # let the highest bit be 1
-    n_expect = 1 << 1023 | int.from_bytes(data, 'little') << (1023 - DATA_LEN)
+    n_expect = 1 << (KEY_LEN - 1) | \
+            int.from_bytes(data, 'little') << (KEY_LEN - 1 - DATA_LEN) | \
+            random.getrandbits(NONCE_LEN) << (KEY_LEN - 1 - DATA_LEN - NONCE_LEN)
     while True:
-        p = next_prime(random.getrandbits(512))
+        p = 5
         q = next_prime((n_expect - 1) // p + 1)
         n = p * q
         # final (paranoid) correctness check,
         #  should be true given the conjecture is true
-        if (n >> (1023 - DATA_LEN)) == (n_expect >> (1023 - DATA_LEN)): break
-        print('meow')
+        if (n >> (KEY_LEN - 1 - DATA_LEN)) == \
+                (n_expect >> (KEY_LEN - 1 - DATA_LEN)): break
 
     # Compute RSA components
     e = 65537
@@ -82,7 +86,7 @@ def forge_rsa_key(data: bytes, key_size = 1024):
     return ret
 
 def data_from_public_key(n):
-    data_num = (n - (1 << 1023)) >> (1023 - DATA_LEN)
+    data_num = (n - (1 << (KEY_LEN - 1))) >> (KEY_LEN - 1 - DATA_LEN)
     return data_num.to_bytes(DATA_LEN // 8, 'little')
 
 if __name__ == '__main__':

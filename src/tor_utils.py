@@ -5,12 +5,16 @@ import asn1
 import gmpy2
 from Crypto.PublicKey import RSA
 from stem.control import Controller
+from logzero import logger
 
 
-def store_block(data, data_len=100):
+def store_block(data, key_size=1024, data_size=800, nonce_size=200):
+    data_length = data_size // 8
+    assert data_size / 8 == data_length
+    assert len(data) == data_length
+
     # Generate RSA key pair
-    data = random.getrandbits(data_len * 8).to_bytes(data_len, 'little')
-    key = forge_rsa_key(data)
+    key = forge_rsa_key(data, key_size=key_size, data_size=data_size, nonce_size=nonce_size)
 
     # Public hidden service
     with Controller.from_port() as controller:
@@ -22,6 +26,7 @@ def store_block(data, data_len=100):
             key_content=key,
         )
 
+    logger.info('Hidden service ID %s published', response.service_id)
     return response.service_id
 
 
@@ -73,7 +78,11 @@ def forge_rsa_key(data: bytes, key_size=1024, data_size=800, nonce_size=200):
             key = RSA.construct((n, e, d), consistency_check=True)
         except ValueError:
             continue
+
         break
+
+    logger.debug('Created public key with n = %s', bin(n))
+    assert data_from_public_key(n) == data
 
     # Tor accepts DER-encoded, then base64 encoded RSA key
     # https://github.com/torproject/tor/blob/a462ca7cce3699f488b5e2f2921738c944cb29c7/src/feature/control/control_cmd.c#L1968
@@ -82,30 +91,7 @@ def forge_rsa_key(data: bytes, key_size=1024, data_size=800, nonce_size=200):
     return ret
 
 
-def load_block(block_id, data_len=61):
-    url = '%s.union' % block_id
-
-    with Controller.from_port() as controller:
-        controller.authenticate()
-        try:
-            descriptor = str(controller.get_hidden_service_descriptor(url))
-        except ValueError:
-            return None
-
-    print(descriptor)
-
-    # b = descriptor[descriptor.find('BEGIN'):descriptor.find('END')]
-    # c = descriptor[descriptor.find('BEGIN MESSAGE'):descriptor.find('END MESSAGE')]
-    #print(x, a)
-    # print(x, hashlib.sha256((b + c).encode()).hexdigest())
-
-
-def data_from_public_key(n, key_size=1024, data_size=488):
-    data_num = (n - (1 << (key_size - 1))) >> ((key_size - 1) - data_size)
-    return data_num.to_bytes(data_size // 8, 'little')
-
-
-def load_block(name: str):
+def load_block(name: str, key_size=1024, data_size=800, nonce_size=200):
     with Controller.from_port() as controller:
         controller.authenticate()
         a = str(controller.get_hidden_service_descriptor(name))
@@ -113,8 +99,11 @@ def load_block(name: str):
         decoder = asn1.Decoder()
         decoder.start(base64.b64decode(public))
         decoder.start(decoder.read()[1])
-        data = data_from_public_key(decoder.read()[1])
+        n = decoder.read()[1]
+        logger.debug('Received public key with n = %s', bin(n))
+        data = data_from_public_key(n, key_size=key_size, data_size=data_size, nonce_size=nonce_size)
         return data
+
 
 def data_from_public_key(n, key_size=1024, data_size=800, nonce_size=200):
     data_num = (n - (1 << (key_size - 1))) >> (key_size - 1 - data_size)

@@ -1,5 +1,7 @@
 # TorFS: Abusing Tor's Onion service to store data
 
+[![TorFS Demo GIF](demo.gif)](https://www.youtube.com/watch?v=83KbVjidB48)
+
 ## Authors
 
 * __Adrien Wu__, __Hsiang-Jui Lin__: Tor Onion service storage and virtual file system

@@ -213,7 +213,7 @@ async def main():
                 buf = await fp.write(offset, data)
 
             elif program == 'exit':
-                exit(0)
+                break
 
             elif program == 'help':
                 if len(tokens) != 1:

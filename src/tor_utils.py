@@ -81,7 +81,7 @@ def forge_rsa_key(data: bytes, key_size=1024, data_size=800, nonce_size=200):
 
         break
 
-    logger.debug('Created public key with n = %s', bin(n))
+    logger.debug('Created public key with n = %s', hex(n))
     assert data_from_public_key(n) == data
 
     # Tor accepts DER-encoded, then base64 encoded RSA key
@@ -100,7 +100,7 @@ def load_block(name: str, key_size=1024, data_size=800, nonce_size=200):
         decoder.start(base64.b64decode(public))
         decoder.start(decoder.read()[1])
         n = decoder.read()[1]
-        logger.debug('Received public key with n = %s', bin(n))
+        logger.debug('Received public key with n = %s', hex(n))
         data = data_from_public_key(n, key_size=key_size, data_size=data_size, nonce_size=nonce_size)
         return data
 

@@ -1,6 +1,6 @@
 # TorFS: Abusing Tor's Onion service to store data
 
-[![TorFS Demo GIF](demo.gif)](https://www.youtube.com/watch?v=83KbVjidB48)
+[![TorFS Demo GIF](torfs_demo.gif)](https://www.youtube.com/watch?v=83KbVjidB48)
 
 ## Authors
 

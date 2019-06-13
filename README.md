@@ -6,7 +6,7 @@
 
 * __Adrien Wu__, __Hsiang-Jui Lin__: Tor Onion service storage and virtual file system
 * __Hsing-Yu Chen__: Data block API
-* __Arthur Wang__, __Yang Han Li__: Reports and documentation
+* __Chih-Hao Wang__, __Yang Han Li__: Reports and documentation
 
 ## About this project
 

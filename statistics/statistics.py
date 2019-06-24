@@ -2,6 +2,7 @@
 import os
 import argparse
 from collections import defaultdict
+from pprint import pprint
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -38,6 +39,7 @@ def main():
         for line in file_input:
             values = line[:-1].split('\t')
             ts, bid, action = values[:3]
+            bid = int(bid)
             ts = float(ts)
 
             if action == 'start':
@@ -61,17 +63,21 @@ def main():
                 assert duration_stat[bid]['start'] is not None
                 assert duration_stat[bid]['stored'] is not None
                 assert duration_stat[bid]['address'] is not None
+                if duration_stat[bid]['retrieve']:
+                    prev_ts, _ = duration_stat[bid]['retrieve'][-1]
+                    assert ts > prev_ts
                 duration_stat[bid]['retrieve'].append((ts, False))
 
     # Compute success rates
     drop_count = 0
+    fail_before_first_successful_retrieve = 0
 
     for bid, stat in duration_stat.items():
         if stat['address'] is None:
             drop_count += 1
 
         durations = list(
-            (ts - stat['start'], success)
+            (ts - stat['stored'], success)
             for ts, success in stat['retrieve']
         )
 
@@ -81,6 +87,7 @@ def main():
         success_rates = list()
         first_success_dur = None
         last_success_dur = None
+        times_fail_to_first_successful_retrieve = None
 
         for dur, success in durations:
             if success:
@@ -88,6 +95,9 @@ def main():
                 last_success_dur = dur
                 if first_success_dur is None:
                     first_success_dur = dur
+                    times_fail_to_first_successful_retrieve = fail_count
+                    if fail_count > 0:
+                        fail_before_first_successful_retrieve += 1
             else:
                 fail_count += 1
                 if first_success_dur is not None:
@@ -113,14 +123,27 @@ def main():
             for (ts, _success), (succ_count, fail_count, rate, rate_after_first) in zip(durations, success_rates)
         )
 
+        stat['times_fail_to_first_successful_retrieve'] = times_fail_to_first_successful_retrieve
         stat['first_success_retrieve'] = first_success_dur
         stat['retrieve_stat'] = retrieve_stat
         stat['live_time'] = live_time
 
+    # Print statistics
+    num_blocks = len(duration_stat)
     drop_rate = drop_count / len(duration_stat)
+    print(
+        'drops:',
+        '%d/%d' % (drop_count, num_blocks),
+        '%f%%' % (drop_rate * 100),
+    )
+    print(
+        'failed_before_retrieve:',
+        '%d/%d' % (fail_before_first_successful_retrieve, num_blocks),
+        '%f%%' % (fail_before_first_successful_retrieve * 100 / num_blocks)
+    )
 
-    # Live time diagrams
-    n_bins = 20
+    # Live time histogram
+    bin_width = 30.               # 30 minutes
     live_time_stat = list(
         stat['live_time'] / 60
         for bid, stat in duration_stat.items()
@@ -128,10 +151,26 @@ def main():
     )
 
     fig, axs = plt.subplots(1, 1, sharey=True, tight_layout=True)
-    axs.hist(live_time_stat, bins=n_bins)
-    plt.savefig('wtf.png')
+    axs.hist(
+        live_time_stat,
+        bins=np.arange(0., max(live_time_stat) + bin_width, bin_width),
+    )
+    plt.savefig(os.path.join(args.output_dir, 'live_time_histogram.png'))
 
-    print(drop_rate)
+    # First success retrieve histogram
+    bin_width = 1.
+    first_success_retrieve_stat = list(
+        stat['first_success_retrieve'] / 60
+        for bid, stat in duration_stat.items()
+        if stat['first_success_retrieve'] is not None
+    )
+    fig, axs = plt.subplots(1, 1, sharey=True, tight_layout=True)
+    axs.hist(
+        first_success_retrieve_stat,
+        bins=np.arange(0., max(first_success_retrieve_stat) + bin_width, bin_width),
+    )
+    plt.savefig(os.path.join(args.output_dir, 'first_success_retrieve_histogram.png'))
+
 
 if __name__ == '__main__':
     main()

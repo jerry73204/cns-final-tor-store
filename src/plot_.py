@@ -68,7 +68,7 @@ def main():
     for key in table.keys():
         try :
             num = len(table[key]["failed"])
-            t = table[key]["failed"][-1]//60 - table[key]["stored"]//60
+            t = (table[key]["failed"][-1]- table[key]["stored"])//60
             failed.append(t/num)
         except:
             continue
@@ -87,7 +87,7 @@ def main():
 
     for key in table.keys():
         try :
-            t = table[key]["retrieved"][-1]//60 - table[key]["retrieved"][0]//60
+            t = (table[key]["retrieved"][-1]- table[key]["retrieved"][0])//60
             failed.append(t)
         except:
             continue
@@ -104,7 +104,7 @@ def main():
     count = 0
     for key in table.keys():
         try :
-            t = table[key]["retrieved"][0]//60 - table[key]["stored"]//60
+            t = (table[key]["retrieved"][0]-table[key]["stored"])//60
             retrieved.append(t)
         except:
             continue
@@ -122,7 +122,7 @@ def main():
     count = 0
     for key in table.keys():
         try :
-            t = table[key]["stored"]//60 - table[key]["start"]//60
+            t = (table[key]["stored"]-table[key]["start"])//60
             retrieved.append(t)
         except:
             continue

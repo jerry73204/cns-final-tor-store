@@ -2,6 +2,7 @@
 import os
 import argparse
 from collections import defaultdict
+import statistics
 from pprint import pprint
 
 import matplotlib.pyplot as plt
@@ -128,20 +129,6 @@ def main():
         stat['retrieve_stat'] = retrieve_stat
         stat['live_time'] = live_time
 
-    # Print statistics
-    num_blocks = len(duration_stat)
-    drop_rate = drop_count / len(duration_stat)
-    print(
-        'drops:',
-        '%d/%d' % (drop_count, num_blocks),
-        '%f%%' % (drop_rate * 100),
-    )
-    print(
-        'failed_before_retrieve:',
-        '%d/%d' % (fail_before_first_successful_retrieve, num_blocks),
-        '%f%%' % (fail_before_first_successful_retrieve * 100 / num_blocks)
-    )
-
     # Live time histogram
     bin_width = 30.               # 30 minutes
     live_time_stat = list(
@@ -170,6 +157,38 @@ def main():
         bins=np.arange(0., max(first_success_retrieve_stat) + bin_width, bin_width),
     )
     plt.savefig(os.path.join(args.output_dir, 'first_success_retrieve_histogram.png'))
+
+    # Compute storing time
+    store_time_stat = list(
+        (stat['stored'] - stat['start']) / 60
+        for bid, stat in duration_stat.items()
+        if stat['stored'] is not None
+    )
+
+    # Print statistics
+    num_blocks = len(duration_stat)
+    drop_rate = drop_count / len(duration_stat)
+    print(
+        'drops:',
+        '%d/%d' % (drop_count, num_blocks),
+        '%f%%' % (drop_rate * 100),
+        sep='\t',
+    )
+    print(
+        'failed_before_retrieve:',
+        '%d/%d' % (fail_before_first_successful_retrieve, num_blocks),
+        '%f%%' % (fail_before_first_successful_retrieve * 100 / num_blocks)
+    )
+    print(
+        'mean_store_time:',
+        '%f mins' % statistics.mean(store_time_stat),
+        sep='\t',
+    )
+    print(
+        'mean_live_time:',
+        '%f mins' % statistics.mean(live_time_stat),
+        sep='\t',
+    )
 
 
 if __name__ == '__main__':
